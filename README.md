@@ -13,7 +13,7 @@ npm install
 npm start
 ```
 
-After the first time, just `npm start` from the `Ploom` folder.
+`npm install` also puts a **Ploom** shortcut on your Desktop, so after the first time just double-click it (or run `npm start` from the `Ploom` folder). The shortcut points at this folder, so if you move the folder, run `npm install` again.
 
 ## Using it
 
@@ -24,12 +24,12 @@ After the first time, just `npm start` from the `Ploom` folder.
 
 ## macOS permissions
 
-When run with `npm start`, macOS asks for permissions on behalf of your **terminal app** (Terminal, iTerm, VS Code…), not Ploom. On first run:
+macOS lists Ploom under a different name depending on how you open it: **Electron** if you use the Desktop shortcut, or your **terminal app** (Terminal, iTerm, VS Code…) if you use `npm start`. On first run:
 
 1. Allow **Camera** and **Microphone** when prompted.
-2. In **System Settings → Privacy & Security → Screen & System Audio Recording**, turn on your terminal app, then quit and rerun `npm start`.
+2. In **System Settings → Privacy & Security → Screen & System Audio Recording**, turn on Electron (or your terminal app), then quit and reopen Ploom.
 
-Computer sound needs macOS 14.2 or newer and the **System Audio Recording** permission for your terminal. If it's not available, Ploom tells you and records without it.
+Computer sound needs macOS 14.2 or newer and the **System Audio Recording** permission. If it's not available, Ploom tells you and records without it.
 
 ## License
 

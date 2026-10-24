@@ -4,7 +4,8 @@
   "description": "Personal screen + camera recorder",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "postinstall": "node scripts/shortcut.js"
   },
   "author": "",
   "license": "ISC",
