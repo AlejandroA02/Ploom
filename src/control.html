@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Ploom</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:">
+<style>
+  :root {
+    --fg: #f5f5f7;
+    --muted: rgba(245, 245, 247, .58);
+    --glass: rgba(20, 20, 26, .9);
+    --menu-bg: rgba(24, 24, 30, .97);
+    --line: rgba(255, 255, 255, .1);
+    --hover: rgba(255, 255, 255, .09);
+    --red: #ff4d55;
+    --amber: #fbbf24;
+    --green: #34d399;
+    --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font: 13px var(--font); color: var(--fg); -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; -webkit-app-region: no-drag; }
+  button:focus-visible { outline: 2px solid #8ab4ff; outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  svg.i.fill { fill: currentColor; stroke: none; }
+
+  /* Sized to content; main resizes the window to match */
+  #root { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: max-content; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+  /* State visibility */
+  body[data-state="idle"] .when-rec { display: none !important; }
+  body:not([data-state="idle"]) .when-idle { display: none !important; }
+  body[data-state="paused"] .when-running, body[data-state="recording"] .when-paused { display: none !important; }
+  body.no-mic .meter { display: none; }
+
+  .bar { display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 6px 16px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .07); white-space: nowrap; -webkit-app-region: drag; }
+  .grip { display: grid; grid-template-columns: repeat(2, 3px); gap: 3px; padding: 0 6px 0 8px; }
+  .grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+  .div { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+
+  .rec, .stop { height: 36px; display: flex; align-items: center; gap: 8px; border-radius: 999px; background: var(--red); color: #fff; font-weight: 600; transition: filter .15s, transform .15s; }
+  .rec { padding: 0 16px 0 12px; box-shadow: 0 4px 12px rgba(255, 77, 85, .35); }
+  .stop { padding: 0 16px 0 14px; }
+  .rec:hover, .stop:hover { filter: brightness(1.08); }
+  .rec:active, .stop:active { transform: scale(.97); }
+  .rec .dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .3); }
+  .stop svg { width: 13px; height: 13px; }
+
+  .chip { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 999px; transition: background .15s; }
+  .chip:hover, .chip[aria-expanded="true"] { background: var(--hover); }
+  .chip .lbl { max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .chip .chev { width: 14px; height: 14px; color: var(--muted); }
+
+  .icon { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 999px; transition: background .15s, color .15s; }
+  .icon:hover { background: var(--hover); }
+  .icon[aria-pressed="false"] { color: var(--muted); }
+  .icon[aria-pressed="false"]::after { content: ''; position: absolute; width: 22px; height: 2px; border-radius: 1px; background: currentColor; transform: rotate(-45deg); box-shadow: 0 0 0 2px rgb(20, 20, 26); }
+
+  /* Mic level: five rising bars */
+  .meter { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+  .meter span { width: 3px; border-radius: 2px; background: rgba(255, 255, 255, .18); }
+  .meter span:nth-child(1) { height: 4px; } .meter span:nth-child(2) { height: 6px; } .meter span:nth-child(3) { height: 8px; } .meter span:nth-child(4) { height: 11px; } .meter span:nth-child(5) { height: 14px; }
+  .meter span.on { background: var(--green); }
+  .meter span.on:nth-child(5) { background: var(--amber); }
+
+  .live { display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; }
+  .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--red); animation: pulse 1.6s infinite; }
+  body[data-state="paused"] .pulse { background: var(--amber); animation: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 77, 85, .55); } 70% { box-shadow: 0 0 0 8px rgba(255, 77, 85, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 77, 85, 0); } }
+  .timer { font: 600 14px var(--mono); font-variant-numeric: tabular-nums; min-width: 44px; }
+  body[data-state="paused"] .timer { color: var(--muted); }
+
+  /* Device menu (sits above the bar, aligned to its chip) */
+  .menu { align-self: flex-start; min-width: 270px; max-width: 380px; max-height: 300px; overflow-y: auto; padding: 6px; border-radius: 16px; background: var(--menu-bg); border: 1px solid var(--line); box-shadow: 0 8px 20px rgba(0, 0, 0, .4); }
+  .menu .ph { padding: 8px 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .menu .opt { width: 100%; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; text-align: left; white-space: nowrap; }
+  .menu .opt:hover, .menu .opt:focus-visible { background: var(--hover); outline: none; }
+  .menu .opt span { overflow: hidden; text-overflow: ellipsis; }
+  .menu .opt .chk { width: 16px; height: 16px; color: var(--green); visibility: hidden; }
+  .menu .opt[aria-selected="true"] .chk { visibility: visible; }
+  .menu .opt .kind { width: 15px; height: 15px; color: var(--muted); }
+  .menu::-webkit-scrollbar { width: 8px; }
+  .menu::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .15); border-radius: 4px; }
+
+  /* Toast (saved / errors / progress) */
+  .toast { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); box-shadow: 0 6px 16px rgba(0, 0, 0, .35); white-space: nowrap; }
+  .toast.has-action { padding-right: 8px; }
+  .toast .ico { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .toast .ico svg { width: 13px; height: 13px; stroke-width: 3; }
+  .toast[data-kind="ok"] .ico { background: var(--green); color: #052e1c; }
+  .toast[data-kind="err"] .ico { background: var(--red); color: #fff; }
+  .toast[data-kind="info"] .ico { border: 2px solid var(--muted); border-top-color: transparent; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast .file { color: var(--muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+  .toast button { padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .12); font-weight: 600; }
+  .toast button:hover { background: rgba(255, 255, 255, .18); }
+</style>
+</head>
+<body data-state="idle">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-window" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.2 3.1a.5.5 0 0 0 .8-.4V8.3a.5.5 0 0 0-.8-.4L16 11"/><rect x="2" y="6" width="14" height="12" rx="2"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 7v6M12 17h.01"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2.5"/></symbol>
+</svg>
+
+<div id="root">
+  <div class="toast" id="toast" hidden role="status">
+    <span class="ico" id="toastIco"></span>
+    <span id="toastText"></span>
+    <span class="file" id="toastFile"></span>
+    <button id="toastAction" hidden>Show in folder</button>
+  </div>
+  <div class="menu" id="menu" hidden role="listbox"></div>
+
+  <div class="bar" id="bar">
+    <div class="grip" title="Drag to move"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+    <button class="rec when-idle" id="start" title="Record (Ctrl+Shift+L)"><span class="dot"></span>Record</button>
+    <div class="div when-idle"></div>
+    <button class="chip when-idle" id="sourceChip" aria-haspopup="listbox" aria-expanded="false" title="What to record">
+      <svg class="i"><use id="sourceIcon" href="#i-monitor"/></svg><span class="lbl" id="sourceLabel">Entire screen</span><svg class="i chev"><use href="#i-chev"/></svg>
+    </button>
+    <button class="chip when-idle" id="micChip" aria-haspopup="listbox" aria-expanded="false" title="Microphone">
+      <svg class="i"><use href="#i-mic"/></svg><span class="lbl" id="micLabel">Microphone</span>
+      <span class="meter" data-meter><span></span><span></span><span></span><span></span><span></span></span>
+      <svg class="i chev"><use href="#i-chev"/></svg>
+    </button>
+    <button class="icon when-idle" id="sys" aria-pressed="true" title="Computer sound"><svg class="i"><use href="#i-speaker"/></svg></button>
+    <button class="icon when-idle" id="cam" aria-pressed="true" title="Camera"><svg class="i"><use href="#i-video"/></svg></button>
+
+    <div class="live when-rec">
+      <span class="pulse"></span><span class="timer" id="timer">0:00</span>
+      <span class="meter" data-meter><span></span><span></span><span></span><span></span><span></span></span>
+    </div>
+    <div class="div when-rec"></div>
+    <button class="icon when-rec" id="pause" title="Pause / resume">
+      <svg class="i fill when-running"><use href="#i-pause"/></svg><svg class="i fill when-paused"><use href="#i-play"/></svg>
+    </button>
+    <button class="stop when-rec" id="stop" title="Stop (Ctrl+Shift+L)"><svg class="i fill"><use href="#i-stop"/></svg>Stop</button>
+
+    <div class="div"></div>
+    <button class="icon" id="quit" title="Quit"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+</div>
+<script src="../node_modules/fix-webm-duration/fix-webm-duration.js"></script>
+<script src="control.js"></script>
+</body>
+</html>

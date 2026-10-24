@@ -1,0 +1,17 @@
+{
+  "name": "ploom",
+  "version": "1.0.0",
+  "description": "Personal screen + camera recorder",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fix-webm-duration": "^1.0.6"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0"
+  }
+}

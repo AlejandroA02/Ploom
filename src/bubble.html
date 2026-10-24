@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  .bubble {
+    position: absolute; inset: 10px; border-radius: 50%; overflow: hidden;
+    background: #1c1c22; border: 3px solid rgba(255,255,255,.92); box-shadow: 0 6px 14px rgba(0,0,0,.4);
+    -webkit-app-region: drag; cursor: move;
+  }
+  video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .empty {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: rgba(245,245,247,.58); font: 600 13px 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; pointer-events: none;
+  }
+  .empty[hidden] { display: none; }
+  .sizes {
+    position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
+    display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(20,20,26,.75);
+    opacity: 0; transition: opacity .15s; -webkit-app-region: no-drag;
+  }
+  body:hover .sizes { opacity: 1; }
+  .sizes button {
+    width: 26px; height: 22px; font: 600 11px 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    color: #fff; background: none; border: none; border-radius: 999px; cursor: pointer;
+  }
+  .sizes button:hover, .sizes button[aria-pressed="true"] { background: rgba(255,255,255,.2); }
+</style>
+</head>
+<body>
+  <div class="bubble"><video id="cam" autoplay muted playsinline></video><div class="empty" id="empty">No camera</div></div>
+  <div class="sizes">
+    <button data-size="s">S</button><button data-size="m" aria-pressed="true">M</button><button data-size="l">L</button>
+  </div>
+<script>
+  const video = document.getElementById('cam')
+  const empty = document.getElementById('empty')
+  let stream = null
+  let wanted = true
+
+  async function startCamera() {
+    if (stream) return
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false })
+      video.srcObject = stream
+      empty.hidden = true
+      stream.getVideoTracks()[0].onended = stopCamera // camera unplugged
+    } catch (err) {
+      console.error('Camera unavailable:', err)
+    }
+  }
+
+  function stopCamera() {
+    stream?.getTracks().forEach((t) => t.stop())
+    stream = null
+    video.srcObject = null
+    empty.hidden = false
+  }
+
+  document.querySelectorAll('[data-size]').forEach((b) =>
+    b.addEventListener('click', () => {
+      window.api.resizeBubble(b.dataset.size)
+      document.querySelectorAll('[data-size]').forEach((x) => x.setAttribute('aria-pressed', x === b))
+    }))
+
+  window.api.onCamera((on) => {
+    wanted = on
+    on ? startCamera() : stopCamera()
+  })
+  // Pick up a camera plugged in after launch
+  navigator.mediaDevices.addEventListener('devicechange', () => wanted && startCamera())
+  startCamera()
+</script>
+</body>
+</html>
