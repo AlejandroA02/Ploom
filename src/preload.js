@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   selectSource: (id) => ipcRenderer.invoke('select-source', id),
   countdown: () => ipcRenderer.invoke('countdown'),
   save: (buffer, ext) => ipcRenderer.invoke('save', buffer, ext),
+  screenAccess: () => ipcRenderer.invoke('screen-access'),
   showFile: (file) => ipcRenderer.invoke('show-file', file),
   setCamera: (on) => ipcRenderer.invoke('set-camera', on),
   resizeBubble: (key) => ipcRenderer.invoke('resize-bubble', key),

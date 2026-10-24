@@ -1,9 +1,10 @@
-const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session, shell } = require('electron')
+const { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, screen, session, shell, systemPreferences } = require('electron')
 const fs = require('fs')
 const path = require('path')
 
 const HOTKEY = 'CommandOrControl+Shift+L'
-const ICON = path.join(__dirname, '..', 'assets', 'icon.ico')
+const IS_MAC = process.platform === 'darwin'
+const ICON = path.join(__dirname, '..', 'assets', IS_MAC ? 'icon.png' : 'icon.ico')
 const BUBBLE_SIZES = { s: 140, m: 220, l: 320 }
 
 let controlWin, bubbleWin, countdownWin
@@ -93,6 +94,9 @@ ipcMain.handle('save', (_e, buffer, ext) => {
   return file
 })
 
+// macOS gives a blank capture (no error) without Screen Recording permission
+ipcMain.handle('screen-access', () => !IS_MAC || systemPreferences.getMediaAccessStatus('screen') === 'granted')
+
 ipcMain.handle('show-file', (_e, file) => shell.showItemInFolder(file))
 
 ipcMain.handle('set-camera', (_e, on) => {
@@ -125,9 +129,15 @@ ipcMain.on('resize-bar', (_e, width, height) => {
 
 ipcMain.handle('quit', () => app.quit())
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (IS_MAC) {
+    app.dock.setIcon(ICON)
+    await systemPreferences.askForMediaAccess('microphone')
+    await systemPreferences.askForMediaAccess('camera')
+  }
+
   // getDisplayMedia() in the control window resolves to the source picked in our UI.
-  // 'loopback' captures system audio on Windows.
+  // 'loopback' captures system audio (Windows; macOS 14.2+ with System Audio Recording permission).
   session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
     const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } })
     const source = sources.find((s) => s.id === selectedSourceId) || sources[0]

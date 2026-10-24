@@ -230,14 +230,29 @@ async function startRecording() {
   showToast('info', 'Starting…')
   streams = []
   try {
+    if (!(await window.api.screenAccess())) {
+      throw new Error('allow Screen Recording for your terminal in System Settings → Privacy & Security, then restart Ploom')
+    }
     await window.api.selectSource(sourceId)
-    const display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: opts.sys })
+    let display, sysWarning
+    try {
+      display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: opts.sys })
+    } catch (err) {
+      if (!opts.sys) throw err
+      // System audio unsupported here; record without it rather than not at all
+      display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false })
+      sysWarning = true
+    }
     streams.push(display)
+
+    // macOS hands back an already-ended audio track when System Audio Recording isn't allowed
+    const sysTracks = display.getAudioTracks().filter((t) => t.readyState === 'live')
+    if (opts.sys && !sysTracks.length) sysWarning = true
 
     // Mix the selected mic + system audio into a single track
     const tracks = [display.getVideoTracks()[0]]
-    if (display.getAudioTracks().length) {
-      sysNode = getAudioCtx().createMediaStreamSource(new MediaStream(display.getAudioTracks()))
+    if (sysTracks.length) {
+      sysNode = getAudioCtx().createMediaStreamSource(new MediaStream(sysTracks))
     }
     if (micNode || sysNode) {
       recDest = getAudioCtx().createMediaStreamDestination()
@@ -266,6 +281,7 @@ async function startRecording() {
     renderTimer()
     setView('recording')
     state = 'recording'
+    if (sysWarning) showError('Computer sound unavailable, recording without it')
   } catch (err) {
     console.error(err)
     cleanup()
