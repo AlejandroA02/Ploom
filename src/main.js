@@ -43,6 +43,13 @@ function createBubble() {
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   })
   bubbleWin.setAlwaysOnTop(true, 'screen-saver')
+  bubbleWin.excludedFromShownWindowsMenu = true // keep it out of the Dock's window list
+  // On macOS, desktopCapturer.getSources() can grow the window ~32px taller, making the bubble oval.
+  // It's never resized non-square on purpose, so square it back up, keeping the bottom edge in place.
+  bubbleWin.on('resize', () => {
+    const { x, y, width, height } = bubbleWin.getBounds()
+    if (width !== height) bubbleWin.setBounds({ x, y: y + height - width, width, height: width })
+  })
   bubbleWin.loadFile(path.join(__dirname, 'bubble.html'))
 }
 
@@ -58,6 +65,7 @@ function showCountdown() {
       skipTaskbar: true, focusable: false, hasShadow: false,
     })
     countdownWin.setAlwaysOnTop(true, 'screen-saver')
+    countdownWin.excludedFromShownWindowsMenu = true
     countdownWin.setContentProtection(true)
     countdownWin.setIgnoreMouseEvents(true)
     countdownWin.loadFile(path.join(__dirname, 'countdown.html'))
@@ -139,7 +147,9 @@ ipcMain.on('drag-start', (_e, cx, cy) => {
   const [x, y] = controlWin.getPosition()
   dragOffset = { x: cx - x, y: cy - y }
 })
-ipcMain.on('drag-move', (_e, cx, cy) => controlWin.setPosition(cx - dragOffset.x, cy - dragOffset.y))
+// macOS pointer coordinates can be fractional; setPosition only takes integers
+ipcMain.on('drag-move', (_e, cx, cy) =>
+  controlWin.setPosition(Math.round(cx - dragOffset.x), Math.round(cy - dragOffset.y)))
 
 ipcMain.handle('quit', () => app.quit())
 
