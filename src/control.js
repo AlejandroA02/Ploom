@@ -14,7 +14,7 @@ let toastTimer
 // ---------- UI helpers ----------
 
 function setView(view) {
-  document.body.dataset.state = view // idle | recording | paused
+  document.body.dataset.state = view // idle | counting | recording | paused
 }
 
 function showToast(kind, text, { file, autoHideMs } = {}) {
@@ -293,7 +293,14 @@ async function startRecording() {
     }
 
     hideToast()
-    await window.api.countdown()
+    setView('counting')
+    state = 'counting'
+    if (!(await window.api.countdown())) {
+      cleanup()
+      setView('idle')
+      state = 'idle'
+      return
+    }
 
     chunks = []
     recorder = new MediaRecorder(new MediaStream(tracks), {
@@ -316,6 +323,7 @@ async function startRecording() {
   } catch (err) {
     console.error(err)
     cleanup()
+    setView('idle')
     state = 'idle'
     showError(`Couldn't start: ${err.message}`)
   }
@@ -399,10 +407,15 @@ navigator.mediaDevices.addEventListener('devicechange', async () => {
   if (micId !== before) openMic(micId).catch((err) => showError(`Mic error: ${err.message}`))
 })
 $('start').addEventListener('click', startRecording)
+$('cancel').addEventListener('click', () => window.api.cancelCountdown())
 $('stop').addEventListener('click', stopRecording)
 $('pause').addEventListener('click', togglePause)
 $('quit').addEventListener('click', () => window.api.quit())
-window.api.onToggle(() => (state === 'idle' ? startRecording() : stopRecording()))
+window.api.onToggle(() => {
+  if (state === 'idle') startRecording()
+  else if (state === 'counting') window.api.cancelCountdown()
+  else stopRecording()
+})
 
 loadSources()
 initMic().catch((err) => showError(`Mic error: ${err.message}`))

@@ -30,7 +30,8 @@
   #root { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: max-content; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
   /* State visibility */
-  body[data-state="idle"] .when-rec { display: none !important; }
+  body[data-state="idle"] .when-rec, body[data-state="counting"] .when-rec { display: none !important; }
+  body:not([data-state="counting"]) .when-counting { display: none !important; }
   body:not([data-state="idle"]) .when-idle { display: none !important; }
   body[data-state="paused"] .when-running, body[data-state="recording"] .when-paused { display: none !important; }
   body.no-mic .meter { display: none; }
@@ -40,6 +41,9 @@
   .grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
   .div { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
 
+  .cancel { height: 36px; padding: 0 16px; border-radius: 999px; background: var(--hover); color: var(--fg); font-weight: 600; transition: background .15s, transform .15s; }
+  .cancel:hover { background: rgba(255, 255, 255, .16); }
+  .cancel:active { transform: scale(.97); }
   .rec, .stop { height: 36px; display: flex; align-items: center; gap: 8px; border-radius: 999px; background: var(--red); color: #fff; font-weight: 600; transition: filter .15s, transform .15s; }
   .rec { padding: 0 16px 0 12px; box-shadow: 0 4px 12px rgba(255, 77, 85, .35); }
   .stop { padding: 0 16px 0 14px; }
@@ -129,6 +133,7 @@
     <div class="grip" title="Drag to move"><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
     <button class="rec when-idle" id="start" title="Record (Ctrl+Shift+L)"><span class="dot"></span>Record</button>
+    <button class="cancel when-counting" id="cancel" title="Cancel (Ctrl+Shift+L)">Cancel</button>
     <div class="div when-idle"></div>
     <button class="chip when-idle" id="sourceChip" aria-haspopup="listbox" aria-expanded="false" title="What to record">
       <svg class="i"><use id="sourceIcon" href="#i-monitor"/></svg><span class="lbl" id="sourceLabel">Entire screen</span><svg class="i chev"><use href="#i-chev"/></svg>

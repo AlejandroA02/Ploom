@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   getSources: () => ipcRenderer.invoke('get-sources'),
   selectSource: (id) => ipcRenderer.invoke('select-source', id),
   countdown: () => ipcRenderer.invoke('countdown'),
+  cancelCountdown: () => ipcRenderer.invoke('cancel-countdown'),
   save: (buffer, ext) => ipcRenderer.invoke('save', buffer, ext),
   screenAccess: () => ipcRenderer.invoke('screen-access'),
   showFile: (file) => ipcRenderer.invoke('show-file', file),

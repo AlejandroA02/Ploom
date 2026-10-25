@@ -53,6 +53,9 @@ function createBubble() {
   bubbleWin.loadFile(path.join(__dirname, 'bubble.html'))
 }
 
+let cancelCountdown
+
+// Resolves true when the countdown finishes, false if cancelled
 function showCountdown() {
   return new Promise((resolve) => {
     const size = 220
@@ -69,11 +72,14 @@ function showCountdown() {
     countdownWin.setContentProtection(true)
     countdownWin.setIgnoreMouseEvents(true)
     countdownWin.loadFile(path.join(__dirname, 'countdown.html'))
-    setTimeout(() => {
+    const end = (finished) => {
+      clearTimeout(timer)
       countdownWin.close()
-      countdownWin = null
-      resolve()
-    }, 3000)
+      countdownWin = cancelCountdown = null
+      resolve(finished)
+    }
+    const timer = setTimeout(() => end(true), 3000)
+    cancelCountdown = () => end(false)
   })
 }
 
@@ -95,6 +101,7 @@ ipcMain.handle('get-sources', async () => {
 ipcMain.handle('select-source', (_e, id) => { selectedSourceId = id })
 
 ipcMain.handle('countdown', () => showCountdown())
+ipcMain.handle('cancel-countdown', () => cancelCountdown?.())
 
 ipcMain.handle('save', (_e, buffer, ext) => {
   const dir = path.join(app.getPath('videos'), 'Ploom')
