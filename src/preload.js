@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   screenAccess: () => ipcRenderer.invoke('screen-access'),
   showFile: (file) => ipcRenderer.invoke('show-file', file),
   setCamera: (on) => ipcRenderer.invoke('set-camera', on),
-  resizeBubble: (key) => ipcRenderer.invoke('resize-bubble', key),
+  setBubble: (opts) => ipcRenderer.invoke('set-bubble', opts),
   resizeBar: (width, height) => ipcRenderer.send('resize-bar', width, height),
   setClickThrough: (on) => ipcRenderer.send('click-through', on),
   dragStart: (x, y, barTop) => ipcRenderer.send('drag-start', x, y, barTop),
