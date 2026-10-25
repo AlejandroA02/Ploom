@@ -60,7 +60,7 @@ $('bar').addEventListener('pointerdown', (e) => {
   if (e.button !== 0 || e.target.closest('button')) return
   const bar = e.currentTarget
   bar.setPointerCapture(e.pointerId)
-  window.api.dragStart(e.screenX, e.screenY)
+  window.api.dragStart(e.screenX, e.screenY, bar.getBoundingClientRect().top)
   const move = (ev) => window.api.dragMove(ev.screenX, ev.screenY)
   bar.addEventListener('pointermove', move)
   bar.addEventListener('lostpointercapture', () => bar.removeEventListener('pointermove', move), { once: true })

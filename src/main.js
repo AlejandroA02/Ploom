@@ -18,7 +18,8 @@ function createControl() {
     width, height,
     x: Math.round(workArea.x + (workArea.width - width) / 2),
     y: workArea.y + workArea.height - height - 8,
-    frame: false, transparent: true, resizable: false, alwaysOnTop: true,
+    // enableLargerThanScreen lets a frameless window go above the macOS menu bar
+    frame: false, transparent: true, resizable: false, alwaysOnTop: true, enableLargerThanScreen: true,
     skipTaskbar: false, hasShadow: false, title: 'Ploom', icon: ICON,
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   })
@@ -149,14 +150,22 @@ ipcMain.on('click-through', (_e, on) => controlWin.setIgnoreMouseEvents(on, { fo
 // Manual window drag: keep the cursor at the same spot on the bar it grabbed.
 // Uses the page's pointer coordinates, so a busy main process (e.g. desktopCapturer)
 // delays the move instead of losing it.
-let dragOffset
-ipcMain.on('drag-start', (_e, cx, cy) => {
+let dragOffset, barTop
+ipcMain.on('drag-start', (_e, cx, cy, top) => {
   const [x, y] = controlWin.getPosition()
   dragOffset = { x: cx - x, y: cy - y }
+  barTop = top
 })
+// The window may hang off the top of the screen (only its transparent menu room), but the bar
+// stays on whichever display the cursor is on.
 // macOS pointer coordinates can be fractional; setPosition only takes integers
-ipcMain.on('drag-move', (_e, cx, cy) =>
-  controlWin.setPosition(Math.round(cx - dragOffset.x), Math.round(cy - dragOffset.y)))
+ipcMain.on('drag-move', (_e, cx, cy) => {
+  const d = screen.getDisplayNearestPoint({ x: Math.round(cx), y: Math.round(cy) }).bounds
+  const [w, h] = controlWin.getSize()
+  const x = Math.min(Math.max(cx - dragOffset.x, d.x), d.x + d.width - w)
+  const y = Math.min(Math.max(cy - dragOffset.y, d.y - barTop), d.y + d.height - h)
+  controlWin.setPosition(Math.round(x), Math.round(y))
+})
 
 ipcMain.handle('quit', () => app.quit())
 

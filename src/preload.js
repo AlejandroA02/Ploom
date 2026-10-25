@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   resizeBubble: (key) => ipcRenderer.invoke('resize-bubble', key),
   resizeBar: (width, height) => ipcRenderer.send('resize-bar', width, height),
   setClickThrough: (on) => ipcRenderer.send('click-through', on),
-  dragStart: (x, y) => ipcRenderer.send('drag-start', x, y),
+  dragStart: (x, y, barTop) => ipcRenderer.send('drag-start', x, y, barTop),
   dragMove: (x, y) => ipcRenderer.send('drag-move', x, y),
   quit: () => ipcRenderer.invoke('quit'),
   onToggle: (cb) => ipcRenderer.on('toggle', () => cb()),
