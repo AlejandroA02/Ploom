@@ -35,6 +35,10 @@ function mac() {
   try {
     execFileSync('sips', ['-s', 'format', 'icns', path.join(ROOT, 'assets', 'icon.png'),
       '--out', path.join(app, 'Contents', 'Resources', 'applet.icns')], { stdio: 'ignore' })
+    // macOS prefers the asset catalog's default script icon over applet.icns
+    fs.rmSync(path.join(app, 'Contents', 'Resources', 'Assets.car'), { force: true })
+    execFileSync('plutil', ['-remove', 'CFBundleIconName', path.join(app, 'Contents', 'Info.plist')], { stdio: 'ignore' })
+    execFileSync('codesign', ['--force', '--sign', '-', app], { stdio: 'ignore' }) // edits above broke the signature
     execFileSync('touch', [app]) // make Finder pick up the new icon
   } catch {}
   return app
