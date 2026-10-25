@@ -42,9 +42,40 @@ async function mac() {
   const app = '/Applications/Ploom.app'
   fs.rmSync(app, { recursive: true, force: true })
   execFileSync('ditto', [path.join(built, 'Ploom.app'), app]) // keeps the framework symlinks
-  execFileSync('codesign', ['--force', '--deep', '--sign', '-', app]) // packaging broke Electron's signature
+  execFileSync('codesign', ['--force', '--deep', '--sign', signingIdentity(tmp), app]) // packaging broke Electron's signature
   fs.rmSync(tmp, { recursive: true, force: true })
   return app
+}
+
+// macOS ties an ad-hoc signed app's permissions to that exact build, so every rebuild would
+// ask for Screen Recording again. A local self-signed cert keeps the grants across rebuilds.
+const CERT = 'Ploom Dev'
+
+function signingIdentity(tmp) {
+  const usable = () => execFileSync('security', ['find-identity', '-v', '-p', 'codesigning'], { encoding: 'utf8' }).includes(`"${CERT}"`)
+  try {
+    if (usable()) return CERT
+    const pem = path.join(tmp, 'cert.pem')
+    try {
+      fs.writeFileSync(pem, execFileSync('security', ['find-certificate', '-c', CERT, '-p'], { stdio: ['ignore', 'pipe', 'ignore'] }))
+    } catch {
+      const cnf = path.join(tmp, 'cert.cnf'), key = path.join(tmp, 'cert.key'), p12 = path.join(tmp, 'cert.p12')
+      fs.writeFileSync(cnf, [
+        '[req]', 'distinguished_name=dn', 'prompt=no', 'x509_extensions=ext',
+        '[dn]', `CN=${CERT}`,
+        '[ext]', 'basicConstraints=critical,CA:false', 'keyUsage=critical,digitalSignature', 'extendedKeyUsage=critical,codeSigning',
+      ].join('\n'))
+      // The system LibreSSL writes a .p12 that `security import` accepts (OpenSSL 3 needs -legacy)
+      execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '3650', '-config', cnf, '-keyout', key, '-out', pem], { stdio: 'ignore' })
+      execFileSync('/usr/bin/openssl', ['pkcs12', '-export', '-inkey', key, '-in', pem, '-out', p12, '-name', CERT, '-passout', 'pass:ploom'], { stdio: 'ignore' })
+      execFileSync('security', ['import', p12, '-P', 'ploom', '-T', '/usr/bin/codesign'], { stdio: 'ignore' })
+    }
+    console.log(`Ploom: trusting the "${CERT}" signing certificate (macOS asks for your password once)`)
+    execFileSync('security', ['add-trusted-cert', '-p', 'codeSign', pem], { stdio: 'ignore' })
+    if (usable()) return CERT
+  } catch {}
+  console.warn(`Ploom: signing without a certificate, so macOS will ask for Screen Recording again after each rebuild`)
+  return '-'
 }
 
 (async () => {

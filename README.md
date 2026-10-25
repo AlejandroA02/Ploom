@@ -29,7 +29,7 @@ macOS lists the app as **Ploom**, or as your **terminal app** if you use `npm st
 1. Allow **Camera** and **Microphone** when prompted.
 2. In **System Settings → Privacy & Security → Screen & System Audio Recording**, turn on Ploom (or your terminal app), then quit and reopen it.
 
-The app isn't signed with a developer ID, so macOS may ask for these again after `npm run app`.
+The first install creates a local "Ploom Dev" signing certificate and asks for your password to trust it. That keeps these permissions across `npm run app` rebuilds.
 
 Computer sound needs macOS 14.2 or newer and the **System Audio Recording** permission. If it's not available, Ploom tells you and records without it.
 

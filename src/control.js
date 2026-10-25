@@ -262,7 +262,7 @@ async function startRecording() {
   streams = []
   try {
     if (!(await window.api.screenAccess())) {
-      throw new Error('allow Screen Recording for your terminal in System Settings → Privacy & Security, then restart Ploom')
+      throw new Error('allow Screen Recording for Ploom (or your terminal with npm start) in System Settings → Privacy & Security, then restart Ploom')
     }
     await window.api.selectSource(sourceId)
     let display, sysWarning
