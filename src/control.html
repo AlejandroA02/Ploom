@@ -117,6 +117,7 @@
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 7v6M12 17h.01"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2.5"/></symbol>
 </svg>
 
@@ -154,6 +155,7 @@
     <button class="icon when-rec" id="pause" title="Pause / resume">
       <svg class="i fill when-running"><use href="#i-pause"/></svg><svg class="i fill when-paused"><use href="#i-play"/></svg>
     </button>
+    <button class="icon when-rec" id="restart" title="Restart (discards this take)"><svg class="i"><use href="#i-restart"/></svg></button>
     <button class="stop when-rec" id="stop" title="Stop (Ctrl+Shift+L)"><svg class="i fill"><use href="#i-stop"/></svg>Stop</button>
 
     <div class="div"></div>

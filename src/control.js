@@ -3,7 +3,7 @@ const $ = (id) => document.getElementById(id)
 const MIC_KEY = 'micDeviceId'
 const opts = { sys: true, cam: true }
 let state = 'idle' // idle | starting | recording | saving
-let recorder, chunks, streams, recDest, sysNode
+let recorder, chunks, streams, tracks, recDest, sysNode
 let elapsedMs, segmentStart, timerId
 let audioCtx, analyser, micStream, micNode
 let micRequest = 0
@@ -281,7 +281,7 @@ async function startRecording() {
     if (opts.sys && !sysTracks.length) sysWarning = true
 
     // Mix the selected mic + system audio into a single track
-    const tracks = [display.getVideoTracks()[0]]
+    tracks = [display.getVideoTracks()[0]]
     if (sysTracks.length) {
       sysNode = getAudioCtx().createMediaStreamSource(new MediaStream(sysTracks))
     }
@@ -302,23 +302,9 @@ async function startRecording() {
       return
     }
 
-    chunks = []
-    recorder = new MediaRecorder(new MediaStream(tracks), {
-      mimeType: pickMimeType(),
-      videoBitsPerSecond: 5_000_000,
-    })
-    recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data)
-    recorder.onstop = finishRecording
     // User clicked the OS "stop sharing" or the window closed
     display.getVideoTracks()[0].onended = () => stopRecording()
-
-    recorder.start(1000)
-    elapsedMs = 0
-    segmentStart = Date.now()
-    timerId = setInterval(renderTimer, 250)
-    renderTimer()
-    setView('recording')
-    state = 'recording'
+    startTake()
     if (sysWarning) showError('Computer sound unavailable, recording without it')
   } catch (err) {
     console.error(err)
@@ -327,6 +313,42 @@ async function startRecording() {
     state = 'idle'
     showError(`Couldn't start: ${err.message}`)
   }
+}
+
+function startTake() {
+  chunks = []
+  recorder = new MediaRecorder(new MediaStream(tracks), {
+    mimeType: pickMimeType(),
+    videoBitsPerSecond: 5_000_000,
+  })
+  recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data)
+  recorder.onstop = finishRecording
+  recorder.start(1000)
+  elapsedMs = 0
+  segmentStart = Date.now()
+  clearInterval(timerId)
+  timerId = setInterval(renderTimer, 250)
+  renderTimer()
+  setView('recording')
+  state = 'recording'
+}
+
+async function restartRecording() {
+  if (state !== 'recording') return
+  // Detach first: late data from the old take would land in the new take's chunks
+  recorder.ondataavailable = recorder.onstop = null
+  recorder.stop()
+  chunks = []
+  clearInterval(timerId)
+  state = 'counting'
+  setView('counting')
+  if (!(await window.api.countdown()) || tracks[0].readyState === 'ended') {
+    cleanup()
+    setView('idle')
+    state = 'idle'
+    return
+  }
+  startTake()
 }
 
 function stopRecording() {
@@ -410,6 +432,7 @@ $('start').addEventListener('click', startRecording)
 $('cancel').addEventListener('click', () => window.api.cancelCountdown())
 $('stop').addEventListener('click', stopRecording)
 $('pause').addEventListener('click', togglePause)
+$('restart').addEventListener('click', restartRecording)
 $('quit').addEventListener('click', () => window.api.quit())
 window.api.onToggle(() => {
   if (state === 'idle') startRecording()
