@@ -10,29 +10,45 @@
     background: #1c1c22; border: 3px solid rgba(255,255,255,.92); box-shadow: 0 6px 14px rgba(0,0,0,.4);
     -webkit-app-region: drag; cursor: move;
   }
+  body:not([data-shape="circle"]) .bubble { border-radius: calc(min(100vw, 100vh) * .16); }
+  body[data-outline="false"] .bubble { border-width: 0; }
   video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
   .empty {
     position: absolute; inset: 0; display: grid; place-items: center;
     color: rgba(245,245,247,.58); font: 600 13px 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; pointer-events: none;
   }
   .empty[hidden] { display: none; }
-  .sizes {
-    position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
-    display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(20,20,26,.75);
-    opacity: 0; transition: opacity .15s; -webkit-app-region: no-drag;
+  /* Bottom part of the bubble; hovering it reveals the controls */
+  .controls {
+    position: absolute; left: 10px; right: 10px; bottom: 10px; height: 40%;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 4px; padding-bottom: 8%; opacity: 0; transition: opacity .15s; -webkit-app-region: drag; cursor: move;
   }
-  body:hover .sizes { opacity: 1; }
-  .sizes button {
+  .controls:hover { opacity: 1; }
+  .pill {
+    display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(20,20,26,.75);
+    pointer-events: auto; -webkit-app-region: no-drag;
+  }
+  .pill button {
     width: 26px; height: 22px; font: 600 11px 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
     color: #fff; background: none; border: none; border-radius: 999px; cursor: pointer;
   }
-  .sizes button:hover, .sizes button[aria-pressed="true"] { background: rgba(255,255,255,.2); }
+  .pill button:hover, .pill button[aria-pressed="true"] { background: rgba(255,255,255,.2); }
+  .pill i { display: block; margin: auto; width: 10px; height: 10px; border-radius: 3px; background: #fff; }
+  button[data-shape="circle"] i { border-radius: 50%; }
+  button[data-shape="rect"] i { width: 14px; height: 8px; }
+  button[data-outline] i { background: none; border: 1.5px solid #fff; width: 8px; height: 8px; }
 </style>
 </head>
 <body>
   <div class="bubble"><video id="cam" autoplay muted playsinline></video><div class="empty" id="empty">No camera</div></div>
-  <div class="sizes">
-    <button data-size="s">S</button><button data-size="m" aria-pressed="true">M</button><button data-size="l">L</button>
+  <div class="controls">
+    <div class="pill">
+      <button data-shape="circle" title="Circle"><i></i></button><button data-shape="square" title="Square"><i></i></button><button data-shape="rect" title="Rectangle"><i></i></button><button data-outline title="Outline"><i></i></button>
+    </div>
+    <div class="pill">
+      <button data-size="s">S</button><button data-size="m">M</button><button data-size="l">L</button>
+    </div>
   </div>
 <script>
   const video = document.getElementById('cam')
@@ -59,11 +75,24 @@
     empty.hidden = false
   }
 
-  document.querySelectorAll('[data-size]').forEach((b) =>
-    b.addEventListener('click', () => {
-      window.api.resizeBubble(b.dataset.size)
-      document.querySelectorAll('[data-size]').forEach((x) => x.setAttribute('aria-pressed', x === b))
-    }))
+  let look = { size: 'm', shape: 'circle', outline: true }
+  try { look = { ...look, ...JSON.parse(localStorage.getItem('bubble')) } } catch {}
+
+  function setLook(change) {
+    look = { ...look, ...change }
+    localStorage.setItem('bubble', JSON.stringify(look))
+    window.api.setBubble({ size: look.size, shape: look.shape })
+    document.body.dataset.shape = look.shape
+    document.body.dataset.outline = look.outline
+    document.querySelectorAll('[data-size]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.size === look.size))
+    document.querySelectorAll('[data-shape]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.shape === look.shape))
+    document.querySelector('[data-outline]').setAttribute('aria-pressed', look.outline)
+  }
+
+  document.querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', () => setLook({ size: b.dataset.size })))
+  document.querySelectorAll('[data-shape]').forEach((b) => b.addEventListener('click', () => setLook({ shape: b.dataset.shape })))
+  document.querySelector('[data-outline]').addEventListener('click', () => setLook({ outline: !look.outline }))
+  setLook({})
 
   window.api.onCamera((on) => {
     wanted = on

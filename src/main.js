@@ -8,6 +8,7 @@ const ICON = path.join(__dirname, '..', 'assets', IS_MAC ? 'icon.png' : 'icon.ic
 const BUBBLE_SIZES = { s: 140, m: 220, l: 320 }
 
 let controlWin, bubbleWin, countdownWin
+let bubble = { size: 'm', shape: 'circle' }
 let selectedSourceId = null
 
 function createControl() {
@@ -32,24 +33,33 @@ function createControl() {
   controlWin.on('closed', () => app.quit())
 }
 
+// The rectangle is 16:9 inside bubble.html's 10px shadow margin
+function bubbleBounds() {
+  const size = BUBBLE_SIZES[bubble.size]
+  if (bubble.shape !== 'rect') return { width: size, height: size }
+  const width = Math.round(size * 1.3)
+  return { width, height: Math.round((width - 20) * 9 / 16) + 20 }
+}
+
 function createBubble() {
   const { workArea } = screen.getPrimaryDisplay()
-  const size = BUBBLE_SIZES.m
+  const { width, height } = bubbleBounds()
   bubbleWin = new BrowserWindow({
-    width: size, height: size,
+    width, height,
     x: workArea.x + 32,
-    y: workArea.y + workArea.height - size - 32,
+    y: workArea.y + workArea.height - height - 32,
     frame: false, transparent: true, resizable: false, alwaysOnTop: true,
     skipTaskbar: true, hasShadow: false, focusable: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   })
   bubbleWin.setAlwaysOnTop(true, 'screen-saver')
   bubbleWin.excludedFromShownWindowsMenu = true // keep it out of the Dock's window list
-  // On macOS, desktopCapturer.getSources() can grow the window ~32px taller, making the bubble oval.
-  // It's never resized non-square on purpose, so square it back up, keeping the bottom edge in place.
+  // On macOS, desktopCapturer.getSources() can grow the window ~32px taller, warping the bubble.
+  // Snap it back to its intended size, keeping the bottom edge in place.
   bubbleWin.on('resize', () => {
     const { x, y, width, height } = bubbleWin.getBounds()
-    if (width !== height) bubbleWin.setBounds({ x, y: y + height - width, width, height: width })
+    const want = bubbleBounds()
+    if (width !== want.width || height !== want.height) bubbleWin.setBounds({ x, y: y + height - want.height, ...want })
   })
   bubbleWin.loadFile(path.join(__dirname, 'bubble.html'))
 }
@@ -123,14 +133,12 @@ ipcMain.handle('set-camera', (_e, on) => {
   bubbleWin.webContents.send('camera', on)
 })
 
-ipcMain.handle('resize-bubble', (_e, key) => {
-  const size = BUBBLE_SIZES[key]
-  if (!size) return
-  const [x, y] = bubbleWin.getPosition()
-  const [w] = bubbleWin.getSize()
-  // Grow/shrink around the bubble's center
-  const offset = Math.round((size - w) / 2)
-  bubbleWin.setBounds({ x: x - offset, y: y - offset, width: size, height: size })
+// Takes any of { size, shape }; grows/shrinks around the bubble's center
+ipcMain.handle('set-bubble', (_e, opts) => {
+  bubble = { ...bubble, ...opts }
+  const b = bubbleWin.getBounds()
+  const { width, height } = bubbleBounds()
+  bubbleWin.setBounds({ x: b.x + Math.round((b.width - width) / 2), y: b.y + Math.round((b.height - height) / 2), width, height })
 })
 
 // The bar window grows/shrinks to fit its content (menus, toasts, recording
