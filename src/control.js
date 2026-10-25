@@ -38,11 +38,33 @@ function hideToast() {
 
 const showError = (text) => showToast('err', text, { autoHideMs: 6000 })
 
-// Keep the window exactly as big as its content (menus and toasts grow it upward)
+// Keep the window as big as its content. While idle, it also reserves room for
+// the device menu above the bar so opening a menu never resizes the window
+// (resizing a transparent window flashes a stale frame for a few frames).
+const MENU_ROOM = 310 // menu max-height + gap
 new ResizeObserver(() => {
   const r = $('root').getBoundingClientRect()
-  window.api.resizeBar(Math.ceil(r.width), Math.ceil(r.height))
+  const reserved = document.body.dataset.state === 'idle' ? $('bar').offsetHeight + 32 + MENU_ROOM : 0
+  window.api.resizeBar(Math.ceil(r.width), Math.ceil(Math.max(r.height, reserved)))
 }).observe($('root'))
+
+// The reserved space is transparent: let clicks there fall through to whatever is behind
+let clickThrough = true
+document.addEventListener('mousemove', (e) => {
+  const through = e.target === document.documentElement || e.target === document.body || e.target === $('root')
+  if (through !== clickThrough) window.api.setClickThrough((clickThrough = through))
+})
+
+// Drag the bar by hand: -webkit-app-region drag areas swallow mouse moves, which click-through relies on
+$('bar').addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || e.target.closest('button')) return
+  const bar = e.currentTarget
+  bar.setPointerCapture(e.pointerId)
+  window.api.dragStart(e.screenX, e.screenY)
+  const move = (ev) => window.api.dragMove(ev.screenX, ev.screenY)
+  bar.addEventListener('pointermove', move)
+  bar.addEventListener('lostpointercapture', () => bar.removeEventListener('pointermove', move), { once: true })
+})
 
 // ---------- Device menus ----------
 
@@ -76,8 +98,10 @@ function openMenu(kind, chip) {
 
   menu.dataset.kind = kind
   menu.hidden = false
-  // Line the menu up with its chip
-  menu.style.marginLeft = `${chip.getBoundingClientRect().left - $('bar').getBoundingClientRect().left - 6}px`
+  // Line the menu up with its chip, but never past the bar's right edge (that would widen the window)
+  const bar = $('bar').getBoundingClientRect()
+  const left = chip.getBoundingClientRect().left - bar.left - 6
+  menu.style.marginLeft = `${Math.max(0, Math.min(left, bar.width - menu.offsetWidth))}px`
   chip.setAttribute('aria-expanded', 'true')
   menu.querySelector('[aria-selected="true"]')?.focus()
 }
@@ -88,19 +112,26 @@ function closeMenu() {
   document.querySelectorAll('[aria-haspopup]').forEach((c) => c.setAttribute('aria-expanded', 'false'))
 }
 
-async function toggleMenu(kind, chip) {
+function toggleMenu(kind, chip) {
   if ($('menu').dataset.kind === kind) return closeMenu()
   closeMenu()
-  if (kind === 'source') await loadSources()
+  // Opens instantly from the cached list; hovering the chip refreshed it (see loadSources)
   openMenu(kind, chip)
 }
 
 // ---------- Sources ----------
 
+// getSources blocks the main process for ~0.4s (which also stalls window drags),
+// so it runs when the source chip is hovered, not on click or focus
+let sourcesLoading
 async function loadSources() {
-  sources = await window.api.getSources()
+  if (sourcesLoading) return sourcesLoading
+  sourcesLoading = window.api.getSources()
+  try { sources = await sourcesLoading } finally { sourcesLoading = null }
   if (!sources.some((s) => s.id === sourceId)) sourceId = sources[0]?.id ?? null
   renderSourceChip()
+  // Refresh the menu in place if it opened before the list came back
+  if ($('menu').dataset.kind === 'source') openMenu('source', $('sourceChip'))
 }
 
 function renderSourceChip() {
@@ -355,13 +386,13 @@ function bindToggle(key) {
 
 ;['sys', 'cam'].forEach(bindToggle)
 $('sourceChip').addEventListener('click', (e) => toggleMenu('source', e.currentTarget))
+$('sourceChip').addEventListener('pointerenter', loadSources)
 $('micChip').addEventListener('click', (e) => toggleMenu('mic', e.currentTarget))
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#menu, [aria-haspopup]')) closeMenu()
 })
 document.addEventListener('keydown', (e) => e.key === 'Escape' && closeMenu())
 window.addEventListener('blur', closeMenu)
-window.addEventListener('focus', loadSources)
 navigator.mediaDevices.addEventListener('devicechange', async () => {
   const before = micId
   await loadMics()

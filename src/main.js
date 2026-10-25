@@ -25,6 +25,8 @@ function createControl() {
   controlWin.setAlwaysOnTop(true, 'screen-saver')
   // Keep the control bar out of recordings (Windows 10 2004+ / macOS)
   controlWin.setContentProtection(true)
+  // Transparent areas pass clicks through; the page flips this as the mouse moves (see 'click-through')
+  controlWin.setIgnoreMouseEvents(true, { forward: true })
   controlWin.loadFile(path.join(__dirname, 'control.html'))
   controlWin.on('closed', () => app.quit())
 }
@@ -126,6 +128,18 @@ ipcMain.on('resize-bar', (_e, width, height) => {
     width, height,
   })
 })
+
+ipcMain.on('click-through', (_e, on) => controlWin.setIgnoreMouseEvents(on, { forward: true }))
+
+// Manual window drag: keep the cursor at the same spot on the bar it grabbed.
+// Uses the page's pointer coordinates, so a busy main process (e.g. desktopCapturer)
+// delays the move instead of losing it.
+let dragOffset
+ipcMain.on('drag-start', (_e, cx, cy) => {
+  const [x, y] = controlWin.getPosition()
+  dragOffset = { x: cx - x, y: cy - y }
+})
+ipcMain.on('drag-move', (_e, cx, cy) => controlWin.setPosition(cx - dragOffset.x, cy - dragOffset.y))
 
 ipcMain.handle('quit', () => app.quit())
 
